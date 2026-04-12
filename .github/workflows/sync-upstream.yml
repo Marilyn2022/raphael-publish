@@ -1,4 +1,3 @@
-```yaml
 name: 同步上游仓库更新
 
 on:
@@ -83,4 +82,3 @@ jobs:
           branch: sync-upstream-${{ github.run_number }}
           delete-branch: true
           labels: 'upstream-sync,automated'
-```
