@@ -61,7 +61,7 @@ jobs:
 
       - name: 创建 Pull Request
         if: steps.check.outputs.has_updates == 'true'
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: '自动同步上游仓库更新'
@@ -80,5 +80,6 @@ jobs:
             - [ ] 构建/测试通过
             - [ ] 代码审查完成
           branch: sync-upstream-${{ github.run_number }}
+          base: main
           delete-branch: true
           labels: 'upstream-sync,automated'
