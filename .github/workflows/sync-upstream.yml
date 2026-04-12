@@ -1,0 +1,86 @@
+```yaml
+name: 同步上游仓库更新
+
+on:
+  schedule:
+    # 每天早上 8:00 UTC 检查一次更新（可根据需要调整）
+    - cron: '0 8 * * *'
+  # 允许手动触发
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 配置 Git
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+      - name: 添加上游仓库
+        run: |
+          git remote add upstream https://github.com/liuxiaopai-ai/raphael-publish.git || true
+          git remote set-url upstream https://github.com/liuxiaopai-ai/raphael-publish.git
+
+      - name: 获取上游更新
+        run: |
+          git fetch upstream main
+
+      - name: 检查是否有更新
+        id: check
+        run: |
+          if git diff --quiet HEAD upstream/main; then
+            echo "has_updates=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_updates=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 创建同步分支
+        if: steps.check.outputs.has_updates == 'true'
+        run: |
+          git checkout -b sync-upstream-${{ github.run_number }}
+
+      - name: 合并上游更新
+        if: steps.check.outputs.has_updates == 'true'
+        run: |
+          git merge upstream/main --allow-unrelated-histories || true
+
+      - name: 推送同步分支
+        if: steps.check.outputs.has_updates == 'true'
+        run: |
+          git push origin sync-upstream-${{ github.run_number }}
+
+      - name: 创建 Pull Request
+        if: steps.check.outputs.has_updates == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: '自动同步上游仓库更新'
+          title: '🔄 自动同步上游仓库更新'
+          body: |
+            ## 自动同步说明
+            
+            此 PR 由工作流自动生成，用于同步上游仓库 `liuxiaopai-ai/raphael-publish` 的最新更新。
+            
+            - 上游仓库: [liuxiaopai-ai/raphael-publish](https://github.com/liuxiaopai-ai/raphael-publish)
+            - 同步时间: ${{ github.event.head_commit.timestamp }}
+            - 工作流运行: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            
+            ### 合并检查清单
+            - [ ] 无冲突或冲突已解决
+            - [ ] 构建/测试通过
+            - [ ] 代码审查完成
+          branch: sync-upstream-${{ github.run_number }}
+          delete-branch: true
+          labels: 'upstream-sync,automated'
+```
